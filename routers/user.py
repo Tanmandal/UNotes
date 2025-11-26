@@ -76,7 +76,7 @@ async def create_private_repo(token: str, repo_name: str) -> dict:
     
     payload = {
         "name": repo_name,
-        "description": f"Private repository for application data",
+        "description": f"Private repository for notes storage",
         "private": True,
         "auto_init": True,
         "has_issues": True,
