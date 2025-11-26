@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNotes - Fast & Easy to use</title>
+    <link rel="SHORTCUT ICON" href="/static/notes.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+    <link href="https://fonts.cdnfonts.com/css/just-another-hand" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .auth-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 100;
+        }
+        .login-message {
+            background: rgba(0, 0, 0, 0.4);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .login-message i {
+            font-size: 18px;
+        }
+        .auth-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .login-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .logout-btn {
+            background: #ff4757;
+            color: white;
+        }
+        .logout-btn:hover {
+            background: #ee5a6f;
+            transform: translateY(-2px);
+        }
+        .user-info {
+            color: #000;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Loader styles */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999999;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .loader-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .loader-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+        }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top: 6px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loader-text {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        /* Disable interactions when loader is active */
+        body.loading {
+            overflow: hidden;
+        }
+        
+        body.loading .container {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loader Overlay -->
+    <div class="loader-overlay" id="loader-overlay">
+        <div class="loader-content">
+            <div class="loader"></div>
+            <div class="loader-text" id="loader-text">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Authentication Section -->
+    <div class="auth-container">
+        <div class="login-message" id="login-message" style="display: none;">
+            <i class="uil uil-info-circle"></i>
+            <span>Login to save and sync notes</span>
+        </div>
+        <div class="user-info" id="user-info" style="display: none;">
+            <i class="uil uil-user-circle" style="font-size: 20px;"></i>
+            <span id="username-display"></span>
+        </div>
+        <a href="/user/github-login" id="login-btn" class="auth-btn login-btn" style="display: none;">
+            <i class="uil uil-github"></i> Login with GitHub
+        </a>
+        <a href="/user/github-logout" id="logout-btn" class="auth-btn logout-btn" style="display: none;">
+            <i class="uil uil-sign-out-alt"></i> Logout
+        </a>
+    </div>
+
+    <div class="container">
+        <div class="popup-container" id="popup">
+            <div class="popup">
+                <div class="startpop">
+                    <p id="popup-title">Add a new Note</p>
+                    <i class="uil uil-times" onclick="closePopup()"></i>
+                </div>
+                <form id="note-form" hx-post="/notes/" hx-target="#notes-list" hx-swap="innerHTML">
+                    <div class="mid-pop">
+                        <div class="midpop-title">
+                            <label>Title</label>
+                            <input type="text" name="title" id="note-title" spellcheck="false">
+                        </div>
+                        <div class="midpop-desc">
+                            <label>Description</label>
+                            <textarea name="description" id="note-desc" spellcheck="false"></textarea>
+                        </div>
+                    </div>
+                    <!-- Hidden fields for GitHub details -->
+                    <input type="hidden" name="access_token" id="form-access-token">
+                    <input type="hidden" name="username" id="form-username">
+                    <input type="hidden" name="repo_name" id="form-repo-name">
+                    <div class="popbut">
+                        <button type="submit" id="submit-btn">Add Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="jab">
+            <img src="/static/notes.png" alt="Notes">
+            <h1>Notes</h1>
+        </div>
+
+        <div class="note-container" id="notes-list">
+            <div class="addnote" onclick="openAddPopup()">
+                <div class="plus"><i class="uil uil-plus"></i></div>
+                <p>Add new note</p>
+            </div>
+            {% for note in notes %}
+            <div class="note" style="background:{{ note.color }}" id="note-{{ note.id }}">
+                <div class="details">
+                    <img src="/static/spin.png" alt="Pin">
+                    <p>{{ note.head }}</p>
+                    <span>{{ note.info }}</span>
+                </div>
+                <div class="bottom">
+                    <span>{{ note.date }}</span>
+                    <div class="settings">
+                        <i onclick="toggleOptions(this)" class="uil uil-ellipsis-h"></i>
+                        <ul class="options">
+                            <li onclick="editNote('{{ note.id }}', '{{ note.head }}', '{{ note.info }}')">&nbsp;&nbsp;<i class="uil uil-pen"></i>&nbsp;Edit</li>
+                            <li onclick="deleteNote('{{ note.id }}')">&nbsp;&nbsp;<i class="uil uil-trash"></i>&nbsp;Delete</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        let editingNoteId = null;
+
+        // Show/hide loader
+        function showLoader(text = 'Loading...') {
+            const overlay = document.getElementById('loader-overlay');
+            const loaderText = document.getElementById('loader-text');
+            
+            loaderText.textContent = text;
+            overlay.classList.add('active');
+            document.body.classList.add('loading');
+        }
+
+        function hideLoader() {
+            const overlay = document.getElementById('loader-overlay');
+            overlay.classList.remove('active');
+            document.body.classList.remove('loading');
+        }
+
+        // Load notes from GitHub on page load
+        async function loadNotesFromGitHub() {
+            const authData = getAuthData();
+            if (authData && authData.access_token) {
+                showLoader('Loading notes from GitHub...');
+                
+                try {
+                    const response = await fetch(
+                        `/notes/load?access_token=${authData.access_token}&username=${authData.username}&repo_name=${authData.repository?.repo?.name || ''}`
+                    );
+                    
+                    if (response.ok) {
+                        const html = await response.text();
+                        document.getElementById('notes-list').innerHTML = html;
+                    }
+                } catch (error) {
+                    console.error('Error loading notes:', error);
+                } finally {
+                    hideLoader();
+                }
+            }
+        }
+
+        // Check authentication status on page load
+        function checkAuth() {
+            const authData = getAuthData();
+            const loginBtn = document.getElementById('login-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userInfo = document.getElementById('user-info');
+            const usernameDisplay = document.getElementById('username-display');
+            const loginMessage = document.getElementById('login-message');
+
+            if (authData && authData.username) {
+                // User is logged in
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-flex';
+                userInfo.style.display = 'flex';
+                usernameDisplay.textContent = authData.username;
+                loginMessage.style.display = 'none';
+                
+                // Load notes from GitHub
+                loadNotesFromGitHub();
+            } else {
+                // User is not logged in
+                loginBtn.style.display = 'inline-flex';
+                logoutBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+                loginMessage.style.display = 'flex';
+            }
+        }
+
+        // Helper function to get auth data from localStorage
+        function getAuthData() {
+            try {
+                const data = localStorage.getItem('unotes_auth');
+                return data ? JSON.parse(data) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Helper function to populate GitHub details in form
+        function populateGitHubDetails() {
+            const authData = getAuthData();
+            if (authData) {
+                document.getElementById('form-access-token').value = authData.access_token || '';
+                document.getElementById('form-username').value = authData.username || '';
+                document.getElementById('form-repo-name').value = authData.repository?.repo?.name || '';
+            }
+        }
+
+        // Run auth check on page load
+        checkAuth();
+
+        function openAddPopup() {
+            document.getElementById('popup').classList.add('show');
+            document.getElementById('popup-title').textContent = 'Add a new Note';
+            document.getElementById('submit-btn').textContent = 'Add Note';
+            document.getElementById('note-title').value = '';
+            document.getElementById('note-desc').value = '';
+            
+            const form = document.getElementById('note-form');
+            form.setAttribute('hx-post', '/notes/');
+            form.setAttribute('hx-target', '#notes-list');
+            form.setAttribute('hx-swap', 'innerHTML');
+            form.removeAttribute('hx-put');
+            
+            editingNoteId = null;
+            populateGitHubDetails();
+            htmx.process(form);
+        }
+
+        function closePopup() {
+            document.getElementById('popup').classList.remove('show');
+            editingNoteId = null;
+        }
+
+        function editNote(noteId, title, desc) {
+            document.getElementById('popup').classList.add('show');
+            document.getElementById('popup-title').textContent = 'Update Note';
+            document.getElementById('submit-btn').textContent = 'Update';
+            document.getElementById('note-title').value = title;
+            document.getElementById('note-desc').value = desc;
+            
+            const form = document.getElementById('note-form');
+            form.setAttribute('hx-put', `/notes/${noteId}`);
+            form.setAttribute('hx-target', `#note-${noteId}`);
+            form.setAttribute('hx-swap', 'outerHTML');
+            form.removeAttribute('hx-post');
+            
+            editingNoteId = noteId;
+            populateGitHubDetails();
+            htmx.process(form);
+        }
+
+        async function deleteNote(noteId) {
+            if (confirm('Delete this note?')) {
+                const authData = getAuthData();
+                if (!authData) {
+                    alert('Please login to delete notes');
+                    return;
+                }
+                
+                showLoader('Deleting note...');
+                
+                try {
+                    const response = await fetch(`/notes/${noteId}?access_token=${encodeURIComponent(authData.access_token)}&username=${encodeURIComponent(authData.username)}&repo_name=${encodeURIComponent(authData.repository?.repo?.name || '')}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        const noteElement = document.getElementById(`note-${noteId}`);
+                        if (noteElement) {
+                            noteElement.remove();
+                        }
+                    } else {
+                        alert('Failed to delete note');
+                    }
+                } catch (error) {
+                    alert('Error deleting note: ' + error.message);
+                } finally {
+                    hideLoader();
+                }
+            }
+        }
+
+        // Clear notes when logout button is clicked
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    const notesList = document.getElementById('notes-list');
+                    if (notesList) {
+                        notesList.innerHTML = `
+                            <div class="addnote" onclick="openAddPopup()">
+                                <div class="plus"><i class="uil uil-plus"></i></div>
+                                <p>Add new note</p>
+                            </div>
+                        `;
+                    }
+                });
+            }
+        });
+
+        // Intercept form submission to show loader
+        document.getElementById('note-form').addEventListener('submit', function(e) {
+            const form = e.target;
+            
+            if (form.hasAttribute('hx-post')) {
+                showLoader('Creating note...');
+            } else if (form.hasAttribute('hx-put')) {
+                showLoader('Updating note...');
+            }
+        });
+
+        // HTMX event handlers
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            const targetId = event.detail.target.id;
+            if (targetId === 'notes-list' || targetId.startsWith('note-')) {
+                closePopup();
+            }
+            
+            hideLoader();
+        });
+
+        document.body.addEventListener('htmx:afterSettle', function(event) {
+            hideLoader();
+        });
+
+        document.body.addEventListener('htmx:responseError', function(event) {
+            hideLoader();
+            alert('An error occurred. Please try again.');
+        });
+
+        document.body.addEventListener('htmx:sendError', function(event) {
+            hideLoader();
+            alert('Network error. Please check your connection.');
+        });
+
+        function toggleOptions(elem) {
+            elem.parentElement.classList.toggle('show');
+            document.addEventListener('click', function closeOptions(e) {
+                if (e.target.tagName !== 'I' || e.target !== elem) {
+                    elem.parentElement.classList.remove('show');
+                    document.removeEventListener('click', closeOptions);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

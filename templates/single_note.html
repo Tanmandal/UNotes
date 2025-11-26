@@ -1,0 +1,17 @@
+<div class="note" style="background:{{ note.color }}" id="note-{{ note.id }}">
+    <div class="details">
+        <img src="/static/spin.png" alt="Pin">
+        <p>{{ note.head }}</p>
+        <span>{{ note.info }}</span>
+    </div>
+    <div class="bottom">
+        <span>{{ note.date }}</span>
+        <div class="settings">
+            <i onclick="toggleOptions(this)" class="uil uil-ellipsis-h"></i>
+            <ul class="options">
+                <li onclick="editNote('{{ note.id }}', '{{ note.head }}', '{{ note.info }}')">&nbsp;&nbsp;<i class="uil uil-pen"></i>&nbsp;Edit</li>
+                <li onclick="deleteNote('{{ note.id }}')">&nbsp;&nbsp;<i class="uil uil-trash"></i>&nbsp;Delete</li>
+            </ul>
+        </div>
+    </div>
+</div>
